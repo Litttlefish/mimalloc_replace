@@ -37,6 +37,7 @@ fn main() {
     }
     if build.get_compiler().is_like_msvc() || build.get_compiler().is_like_clang_cl() {
         build.cpp(true).flag("/O2").flag("/Ob2").flag("/Z7"); // idk if this works
+        println!("cargo:rustc-link-arg=/ENTRY:raw_main");
     } else {
         build
             .flag("-Wno-unknown-pragmas")
@@ -44,6 +45,7 @@ fn main() {
             .flag("-O3")
             .flag("-fomit-frame-pointer")
             .flag("-funroll-loops");
+        println!("cargo:rustc-link-arg=-Wl,--entry=raw_main");
     }
     build.compile("mimalloc");
     // Link with libs needed on Windows
@@ -51,5 +53,4 @@ fn main() {
     for lib in ["psapi", "shell32", "user32", "advapi32", "bcrypt"] {
         println!("cargo:rustc-link-lib={}", lib);
     }
-    println!("cargo:rustc-link-arg=-Wl,--entry=raw_main");
 }
