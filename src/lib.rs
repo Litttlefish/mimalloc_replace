@@ -38,6 +38,8 @@ unsafe impl core::alloc::GlobalAlloc for SelfAllocator {
 static GLOBAL: SelfAllocator = SelfAllocator; // of course we allocate ourselves
 
 unsafe extern "C" {
+    unsafe fn _mi_auto_process_init();
+
     unsafe fn mi_any_heap_contains(p: *const c_void) -> bool;
 
     unsafe fn mi_zalloc_aligned(n: usize, a: usize) -> *mut c_void;
@@ -242,6 +244,7 @@ macro_rules! hook {
 unsafe extern "system" fn raw_main(_: HMODULE, reason: u32, _: *mut c_void) -> BOOL {
     match reason {
         1 => unsafe {
+            _mi_auto_process_init();
             let mut session = neohook::DetourTransaction::begin();
             session.update_all_threads();
             let module = GetModuleHandleW(w!("ucrtbase"));
