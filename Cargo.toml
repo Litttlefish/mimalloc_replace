@@ -1,0 +1,22 @@
+[package]
+name = "mimalloc_replace"
+version = "0.1.0"
+edition = "2024"
+links = "mimalloc"
+
+[dependencies]
+windows-sys = { version = "0.61.*", features = ["Win32_System_LibraryLoader"] }
+windows-link = "0.2.*"
+neohook = "0.1.*"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = "debuginfo"
+panic = "abort"
+
+[build-dependencies]
+cc = "1.*"
