@@ -36,7 +36,7 @@ fn main() {
         build.define("MI_DEBUG", "0");
     }
     if build.get_compiler().is_like_msvc() || build.get_compiler().is_like_clang_cl() {
-        build.cpp(true).flag("/O2").flag("/Ob2").flag("/Z7"); // idk if this works
+        build.cpp(true).flag("/O2").flag("/Ob2"); // idk if this works
         println!("cargo:rustc-link-arg=/ENTRY:raw_main");
     } else {
         build
