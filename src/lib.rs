@@ -1,4 +1,5 @@
 #![no_std]
+#![no_main]
 
 use core::{ffi::c_void, mem::transmute};
 use windows_link::link;
