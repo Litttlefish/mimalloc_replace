@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use core::{ffi::c_void, mem::transmute};
+use core::{alloc::Layout, ffi::c_void, mem::transmute};
 use windows_link::link;
 use windows_sys::{
     Win32::{
@@ -14,7 +14,6 @@ use windows_sys::{
     core::*,
 };
 
-use core::alloc::Layout;
 struct SelfAllocator;
 unsafe impl core::alloc::GlobalAlloc for SelfAllocator {
     #[inline]
