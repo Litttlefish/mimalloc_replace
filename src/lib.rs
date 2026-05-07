@@ -1,8 +1,11 @@
 #![no_std]
 #![no_main]
 
-use core::{alloc::Layout, ffi::c_void, mem::transmute};
-use windows_link::link;
+use core::{
+    alloc::Layout,
+    ffi::{c_char, c_int, c_uchar, c_ushort, c_void},
+    sync::atomic::{AtomicPtr, Ordering},
+};
 use windows_sys::{
     Win32::{
         Foundation::*,
@@ -44,14 +47,23 @@ unsafe extern "C" {
 
     unsafe fn mi_zalloc_aligned(n: usize, a: usize) -> *mut c_void;
 
+    unsafe fn mi_zalloc_aligned_at(n: usize, a: usize, o: usize) -> *mut c_void;
+
     unsafe fn mi_malloc(n: usize) -> *mut c_void;
+    unsafe fn mi_zalloc(n: usize) -> *mut c_void;
     unsafe fn mi_calloc(c: usize, n: usize) -> *mut c_void;
     unsafe fn mi_realloc(p: *mut c_void, n: usize) -> *mut c_void;
     unsafe fn mi_free(p: *mut c_void);
 
+    unsafe fn mi_strdup(s: *const c_char) -> *mut c_char;
+    unsafe fn mi_wcsdup(s: *const c_ushort) -> *mut c_ushort;
+    unsafe fn mi_mbsdup(s: *const c_uchar) -> *mut c_uchar;
+    unsafe fn mi_dupenv_s(b: *mut *mut c_uchar, s: *mut usize, n: *const c_char) -> c_int;
+    unsafe fn mi_wdupenv_s(b: *mut *mut c_ushort, s: *mut usize, n: *const c_ushort) -> c_int;
+
     unsafe fn mi_expand(p_: *mut c_void, n: usize) -> *mut c_void;
     unsafe fn mi_usable_size(p: *const c_void) -> usize;
-    unsafe fn mi_recalloc(p: *mut c_void, b: usize, n: usize) -> *mut c_void;
+    unsafe fn mi_recalloc(p: *mut c_void, c: usize, n: usize) -> *mut c_void;
 
     unsafe fn mi_malloc_aligned(n: usize, a: usize) -> *mut c_void;
     unsafe fn mi_realloc_aligned(p: *mut c_void, n: usize, a: usize) -> *mut c_void;
@@ -67,172 +79,107 @@ unsafe extern "C" {
     ) -> *mut c_void;
 }
 
+macro_rules! call_fn {
+    ($holder:ident, $fn:ty) => {
+        core::mem::transmute::<*mut _, $fn>($holder.load(Ordering::Relaxed))
+    };
+}
+
+type FreeFn = unsafe extern "C" fn(*mut c_void);
 macro_rules! boilerplate {
-    ($name:ident, $mi:ident, $holder:ident) => {
-        static mut $holder: *mut u8 = core::ptr::null_mut();
+    (fn $name:ident($($pname:ident:$ptype:ty),*) -> $ret:ty
+        where mi=$mi:ident($($mi_arg:expr),*), holder=$holder:ident, check_ptr=$check_expr:expr) => {
+        static $holder: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
         #[inline(always)]
-        unsafe extern "C" fn $name(p: *mut c_void) {
-            type Fn = unsafe extern "C" fn(*mut c_void);
+        unsafe extern "C" fn $name($($pname:$ptype),*) -> $ret {
+            type Fn = unsafe extern "C" fn($($ptype),*) -> $ret;
             unsafe {
-                if mi_any_heap_contains(p) {
-                    $mi(p)
+                if mi_any_heap_contains($check_expr) {
+                    $mi($($mi_arg),*)
                 } else {
                     core::hint::cold_path();
-                    transmute::<*mut _, Fn>($holder)(p)
+                    call_fn!($holder, Fn)($($pname),*)
                 }
             }
         }
     };
-    ($name:ident, $mi:ident, $holder:ident, 0) => {
-        static mut $holder: *mut u8 = core::ptr::null_mut();
+    (fn $name:ident($($pname:ident:$ptype:ty),*) -> $ret:ty
+        where mi=$mi:ident, check_ptr=$check_expr:expr, check($check:expr), size=$size_fn:ident($($size:expr),*)as$size_ty:ty,free=$free_fn:ident,
+            cold_mi=$cold_mi:ident($cold_count:expr$(,$cold_arg:expr)*)) => {
         #[inline(always)]
-        unsafe extern "C" fn $name(p: *const c_void) -> usize {
-            type Fn = unsafe extern "C" fn(*const c_void) -> usize;
+        unsafe extern "C" fn $name($($pname:$ptype),*) -> $ret {
             unsafe {
-                if mi_any_heap_contains(p) {
-                    $mi(p)
+                if mi_any_heap_contains($check_expr) || $check_expr.is_null() {
+                    $mi($($pname),*)
                 } else {
                     core::hint::cold_path();
-                    transmute::<*mut _, Fn>($holder)(p)
-                }
-            }
-        }
-    };
-    ($name:ident, $mi:ident, $holder:ident, -2) => {
-        static mut $holder: *mut u8 = core::ptr::null_mut();
-        #[inline(always)]
-        unsafe extern "C" fn $name(p: *const c_void, a: usize, b: usize) -> usize {
-            type Fn = unsafe extern "C" fn(*const c_void, usize, usize) -> usize;
-            unsafe {
-                if mi_any_heap_contains(p) {
-                    $mi(p)
-                } else {
-                    core::hint::cold_path();
-                    transmute::<*mut _, Fn>($holder)(p, a, b)
-                }
-            }
-        }
-    };
-    ($name:ident, $mi:ident, $holder:ident, 1) => {
-        static mut $holder: *mut u8 = core::ptr::null_mut();
-        #[inline(always)]
-        unsafe extern "C" fn $name(p: *mut c_void, a: usize) -> *mut c_void {
-            type Fn = unsafe extern "C" fn(*mut c_void, usize) -> *mut c_void;
-            unsafe {
-                if mi_any_heap_contains(p) {
-                    $mi(p, a)
-                } else {
-                    core::hint::cold_path();
-                    transmute::<*mut _, Fn>($holder)(p, a)
-                }
-            }
-        }
-    };
-    ($name:ident, $mi:ident, $holder:ident, 2) => {
-        static mut $holder: *mut u8 = core::ptr::null_mut();
-        #[inline(always)]
-        unsafe extern "C" fn $name(p: *mut c_void, a: usize, b: usize) -> *mut c_void {
-            type Fn = unsafe extern "C" fn(*mut c_void, usize, usize) -> *mut c_void;
-            unsafe {
-                if mi_any_heap_contains(p) {
-                    $mi(p, a, b)
-                } else {
-                    core::hint::cold_path();
-                    transmute::<*mut _, Fn>($holder)(p, a, b)
-                }
-            }
-        }
-    };
-    ($name:ident, $mi:ident, $holder:ident, 3) => {
-        static mut $holder: *mut u8 = core::ptr::null_mut();
-        #[inline(always)]
-        unsafe extern "C" fn $name(p: *mut c_void, a: usize, b: usize, c: usize) -> *mut c_void {
-            type Fn = unsafe extern "C" fn(*mut c_void, usize, usize, usize) -> *mut c_void;
-            unsafe {
-                if mi_any_heap_contains(p) {
-                    $mi(p, a, b, c)
-                } else {
-                    core::hint::cold_path();
-                    transmute::<*mut _, Fn>($holder)(p, a, b, c)
-                }
-            }
-        }
-    };
-    ($name:ident, $mi:ident, $holder:ident, 4) => {
-        static mut $holder: *mut u8 = core::ptr::null_mut();
-        #[inline(always)]
-        unsafe extern "C" fn $name(
-            p: *mut c_void,
-            a: usize,
-            b: usize,
-            c: usize,
-            d: usize,
-        ) -> *mut c_void {
-            unsafe {
-                type Fn =
-                    unsafe extern "C" fn(*mut c_void, usize, usize, usize, usize) -> *mut c_void;
-                if mi_any_heap_contains(p) {
-                    $mi(p, a, b, c, d)
-                } else {
-                    core::hint::cold_path();
-                    transmute::<*mut _, Fn>($holder)(p, a, b, c, d)
+                    if $check {
+                        call_fn!($free_fn, FreeFn)($check_expr);
+                        core::ptr::null_mut()
+                    } else {
+                        let old_size = call_fn!($size_fn, $size_ty)($($size),*);
+                        let new_size = $cold_count;
+                        let to = $cold_mi(new_size,$($cold_arg),*);
+                        core::ptr::copy_nonoverlapping($check_expr, to, old_size.min(new_size));
+                        call_fn!($free_fn, FreeFn)($check_expr);
+                        to
+                    }
                 }
             }
         }
     };
 }
 
-#[inline(always)]
-unsafe extern "C" fn mi_sfree(p: *mut c_void) {
-    link!("ucrtbase.dll" "C" fn _free_base(p : *mut c_void));
-    unsafe {
-        if mi_any_heap_contains(p) {
-            mi_free(p)
-        } else {
-            core::hint::cold_path();
-            _free_base(p)
-        }
-    }
+type SizeFn = unsafe extern "C" fn(*const c_void) -> usize;
+type AlignedSizeFn = unsafe extern "C" fn(*const c_void, usize, usize) -> usize;
+
+boilerplate! {
+    fn mi_sexpand(p: *mut c_void, a: usize) -> *mut c_void
+    where mi = mi_expand(p, a), holder = EXPAND, check_ptr = p
+}
+boilerplate! {
+    fn mi_sfree(p: *mut c_void) -> ()
+    where mi = mi_free(p), holder = FREE, check_ptr = p
+}
+boilerplate! {
+    fn mi_sfree_aligned(p: *mut c_void) -> ()
+    where mi = mi_free(p), holder = ALIGNED_FREE, check_ptr = p
+}
+boilerplate! {
+    fn mi_smsize(p: *const c_void) -> usize
+    where mi = mi_usable_size(p), holder = MSIZE, check_ptr = p
+}
+boilerplate! {
+    fn mi_smsize_aligned(p: *const c_void, a: usize, o: usize) -> usize
+    where mi = mi_usable_size(p), holder = ALIGNED_MSIZE, check_ptr = p
 }
 
-#[inline(always)]
-unsafe extern "C" fn mi_srealloc(p: *mut c_void, n: usize) -> *mut c_void {
-    link!("ucrtbase.dll" "C" fn _realloc_base(p: *mut c_void, n: usize) -> *mut c_void);
-    unsafe {
-        if mi_any_heap_contains(p) {
-            mi_realloc(p, n)
-        } else {
-            core::hint::cold_path();
-            _realloc_base(p, n)
-        }
-    }
+boilerplate! {
+    fn mi_srealloc(p: *mut c_void, n: usize) -> *mut c_void
+    where mi = mi_realloc, check_ptr = p, check(n == 0), size = MSIZE(p) as SizeFn, free = FREE, cold_mi = mi_malloc(n)
+}
+boilerplate! {
+    fn mi_srecalloc(p: *mut c_void, c: usize, n: usize) -> *mut c_void
+    where mi = mi_recalloc, check_ptr = p, check(n == 0 || c == 0), size = MSIZE(p) as SizeFn, free = FREE, cold_mi = mi_zalloc(c * n)
 }
 
-boilerplate!(mi_sexpand, mi_expand, EXPAND, 1);
-boilerplate!(mi_smsize, mi_usable_size, MSIZE, 0);
-boilerplate!(mi_srecalloc, mi_recalloc, RECALLOC, 2);
+boilerplate! {
+    fn mi_srealloc_aligned(p: *mut c_void, n: usize, a: usize) -> *mut c_void
+    where mi = mi_realloc_aligned, check_ptr = p, check(n == 0), size = ALIGNED_MSIZE(p, a, 0) as AlignedSizeFn, free = ALIGNED_FREE, cold_mi = mi_malloc_aligned(n, a)
+}
+boilerplate! {
+    fn mi_srecalloc_aligned(p: *mut c_void, c: usize, n: usize, a: usize) -> *mut c_void
+    where mi = mi_recalloc_aligned, check_ptr = p, check(n == 0 || c == 0), size = ALIGNED_MSIZE(p, a, 0) as AlignedSizeFn, free = ALIGNED_FREE, cold_mi = mi_zalloc_aligned(c * n, a)
+}
 
-boilerplate!(mi_srealloc_aligned, mi_realloc_aligned, ALIGNED_REALLOC, 2);
-boilerplate!(
-    mi_srecalloc_aligned,
-    mi_recalloc_aligned,
-    ALIGNED_RECALLOC,
-    3
-);
-boilerplate!(mi_smsize_aligned, mi_usable_size, ALIGNED_MSIZE, -2);
-boilerplate!(mi_sfree_aligned, mi_free, ALIGNED_FREE);
-boilerplate!(
-    mi_srealloc_aligned_at,
-    mi_realloc_aligned_at,
-    ALIGNED_REALLOC_OFFSET,
-    3
-);
-boilerplate!(
-    mi_srecalloc_aligned_at,
-    mi_recalloc_aligned_at,
-    ALIGNED_RECALLOC_OFFSET,
-    4
-);
+boilerplate! {
+    fn mi_srealloc_aligned_at(p: *mut c_void, n: usize, a: usize, o: usize) -> *mut c_void
+    where mi = mi_realloc_aligned_at, check_ptr = p, check(n == 0), size = ALIGNED_MSIZE(p, a, o) as AlignedSizeFn, free = ALIGNED_FREE, cold_mi = mi_malloc_aligned_at(n, a, o)
+}
+boilerplate! {
+    fn mi_srecalloc_aligned_at(p: *mut c_void, c: usize, n: usize, a: usize, o: usize) -> *mut c_void
+    where mi = mi_recalloc_aligned_at, check_ptr = p, check(n == 0 || c == 0), size = ALIGNED_MSIZE(p, a, o) as AlignedSizeFn, free = ALIGNED_FREE, cold_mi = mi_zalloc_aligned_at(c * n, a, o)
+}
 
 macro_rules! hook {
     ($module:expr, $func:literal) => {
@@ -261,48 +208,77 @@ unsafe extern "system" fn raw_main(_: HMODULE, reason: u32, _: *mut c_void) -> B
             session
                 .attach(hook!(module, c"free"), mi_sfree as _)
                 .unwrap();
+            FREE.store(hook!(module, c"_free_base"), Ordering::Relaxed);
 
-            EXPAND = session
-                .attach(hook!(module, c"_expand"), mi_sexpand as _)
+            session
+                .attach(hook!(module, c"_strdup"), mi_strdup as _)
                 .unwrap();
-            MSIZE = session
-                .attach(hook!(module, c"_msize"), mi_smsize as _)
+            session
+                .attach(hook!(module, c"_wcsdup"), mi_wcsdup as _)
                 .unwrap();
-            RECALLOC = session
+            session
+                .attach(hook!(module, c"_mbsdup"), mi_mbsdup as _)
+                .unwrap();
+            session
+                .attach(hook!(module, c"_dupenv_s"), mi_dupenv_s as _)
+                .unwrap();
+            session
+                .attach(hook!(module, c"_wdupenv_s"), mi_wdupenv_s as _)
+                .unwrap();
+
+            EXPAND.store(
+                session
+                    .attach(hook!(module, c"_expand"), mi_sexpand as _)
+                    .unwrap(),
+                Ordering::Relaxed,
+            );
+            MSIZE.store(
+                session
+                    .attach(hook!(module, c"_msize"), mi_smsize as _)
+                    .unwrap(),
+                Ordering::Relaxed,
+            );
+            session
                 .attach(hook!(module, c"_recalloc"), mi_srecalloc as _)
                 .unwrap();
 
             session
                 .attach(hook!(module, c"_aligned_malloc"), mi_malloc_aligned as _)
                 .unwrap();
-            ALIGNED_REALLOC = session
+            session
                 .attach(hook!(module, c"_aligned_realloc"), mi_srealloc_aligned as _)
                 .unwrap();
-            ALIGNED_RECALLOC = session
+            session
                 .attach(
                     hook!(module, c"_aligned_recalloc"),
                     mi_srecalloc_aligned as _,
                 )
                 .unwrap();
-            ALIGNED_MSIZE = session
-                .attach(hook!(module, c"_aligned_msize"), mi_smsize_aligned as _)
-                .unwrap();
-            ALIGNED_FREE = session
-                .attach(hook!(module, c"_aligned_free"), mi_sfree_aligned as _)
-                .unwrap();
+            ALIGNED_MSIZE.store(
+                session
+                    .attach(hook!(module, c"_aligned_msize"), mi_smsize_aligned as _)
+                    .unwrap(),
+                Ordering::Relaxed,
+            );
+            ALIGNED_FREE.store(
+                session
+                    .attach(hook!(module, c"_aligned_free"), mi_sfree_aligned as _)
+                    .unwrap(),
+                Ordering::Relaxed,
+            );
             session
                 .attach(
                     hook!(module, c"_aligned_offset_malloc"),
                     mi_malloc_aligned_at as _,
                 )
                 .unwrap();
-            ALIGNED_REALLOC_OFFSET = session
+            session
                 .attach(
                     hook!(module, c"_aligned_offset_realloc"),
                     mi_srealloc_aligned_at as _,
                 )
                 .unwrap();
-            ALIGNED_RECALLOC_OFFSET = session
+            session
                 .attach(
                     hook!(module, c"_aligned_offset_recalloc"),
                     mi_srecalloc_aligned_at as _,

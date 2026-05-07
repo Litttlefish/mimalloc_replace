@@ -24,10 +24,10 @@ fn main() {
     build.define("MI_BUILD_OBJECT", "OFF");
     build.define("MI_BUILD_SHARED", "OFF");
     build.define("MI_BUILD_TESTS", "OFF");
+    build.define("MI_SKIP_COLLECT_ON_EXIT", "OFF");
     build.define("MI_OPT_ARCH", "ON");
     build.define("MI_OPT_SIMD", "ON");
     build.define("MI_XMALLOC", "ON");
-    build.define("MI_USE_CXX", "ON");
     if env::var_os("CARGO_FEATURE_DEBUG").is_some() {
         build.define("MI_DEBUG", "3");
         build.define("MI_SHOW_ERRORS", "1");
@@ -41,10 +41,15 @@ fn main() {
     } else {
         build
             .flag("-Wno-unknown-pragmas")
+            .flag("-Wno-date-time")
             .flag("-flto=thin")
             .flag("-O3")
             .flag("-fomit-frame-pointer")
-            .flag("-funroll-loops");
+            .flag("-funroll-loops")
+            .flag("-fno-strict-aliasing")
+            .flag("-fwrapv")
+            .flag("-fmerge-all-constants")
+            .flag("-fvisibility=hidden");
         println!("cargo:rustc-link-arg=-Wl,--entry=raw_main");
     }
     build.compile("mimalloc");

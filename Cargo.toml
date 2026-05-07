@@ -6,7 +6,6 @@ links = "mimalloc"
 
 [dependencies]
 windows-sys = { version = "0.61.*", features = ["Win32_System_LibraryLoader"] }
-windows-link = "0.2.*"
 neohook = "0.1.*"
 
 [lib]
