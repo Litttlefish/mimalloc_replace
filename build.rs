@@ -15,19 +15,17 @@ fn main() {
     let src = manifest.join("mimalloc").join("src");
 
     // println!("cargo:INCLUDE_DIR={include_dir}");
-    build.include(inc);
-    build.include(&src);
-    build.file(src.join("static.c"));
+    build.file(src.join("static.c")).include(src).include(inc);
 
-    build.define("MI_OVERRIDE", "OFF");
-    build.define("MI_WIN_REDIRECT", "OFF");
-    build.define("MI_BUILD_OBJECT", "OFF");
-    build.define("MI_BUILD_SHARED", "OFF");
-    build.define("MI_BUILD_TESTS", "OFF");
-    build.define("MI_SKIP_COLLECT_ON_EXIT", "OFF");
-    build.define("MI_OPT_ARCH", "ON");
-    build.define("MI_OPT_SIMD", "ON");
-    build.define("MI_XMALLOC", "ON");
+    build
+        .define("MI_WIN_REDIRECT", "OFF")
+        .define("MI_BUILD_OBJECT", "OFF")
+        .define("MI_BUILD_SHARED", "OFF")
+        .define("MI_BUILD_TESTS", "OFF")
+        .define("MI_SKIP_COLLECT_ON_EXIT", "OFF")
+        .define("MI_OPT_ARCH", "ON")
+        .define("MI_OPT_SIMD", "ON");
+    // build.define("MI_XMALLOC", "ON");
     if env::var_os("CARGO_FEATURE_DEBUG").is_some() {
         build.define("MI_DEBUG", "3");
         build.define("MI_SHOW_ERRORS", "1");
@@ -36,7 +34,7 @@ fn main() {
         build.define("MI_DEBUG", "0");
     }
     if build.get_compiler().is_like_msvc() || build.get_compiler().is_like_clang_cl() {
-        build.cpp(true).flag("/O2").flag("/Ob2"); // idk if this works
+        build.flag("/O2").flag("/Ob2"); // idk if this works
         println!("cargo:rustc-link-arg=/ENTRY:raw_main");
     } else {
         build

@@ -42,6 +42,7 @@ static GLOBAL: SelfAllocator = SelfAllocator; // of course we allocate ourselves
 
 unsafe extern "C" {
     unsafe fn _mi_auto_process_init();
+    unsafe fn mi_thread_done();
 
     unsafe fn mi_any_heap_contains(p: *const c_void) -> bool;
 
@@ -290,8 +291,10 @@ unsafe extern "system" fn raw_main(_: HMODULE, reason: u32, _: *mut c_void) -> B
                 GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
                 raw_main as _,
                 &mut _discard,
-            )
+            );
         },
-        _ => TRUE,
+        3 => unsafe { mi_thread_done() },
+        _ => (),
     }
+    TRUE
 }
