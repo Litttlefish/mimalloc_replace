@@ -186,7 +186,7 @@ macro_rules! hook {
 }
 
 #[unsafe(no_mangle)]
-unsafe extern "system" fn raw_main(_: HMODULE, reason: u32, _: *mut c_void) -> BOOL {
+unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) -> BOOL {
     match reason {
         1 => unsafe {
             _mi_auto_process_init();
