@@ -9,10 +9,7 @@ use core::{
 use windows_sys::{
     Win32::{
         Foundation::*,
-        System::LibraryLoader::{
-            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GetModuleHandleExW, GetModuleHandleW,
-            GetProcAddress,
-        },
+        System::LibraryLoader::{GetModuleHandleExW, GetModuleHandleW, GetProcAddress},
     },
     core::*,
 };
@@ -287,11 +284,7 @@ unsafe extern "system" fn raw_main(_: HMODULE, reason: u32, _: *mut c_void) -> B
                 .unwrap();
             core::mem::forget(session.commit().expect("transaction failed"));
             let mut _discard = HMODULE::default();
-            GetModuleHandleExW(
-                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                raw_main as _,
-                &mut _discard,
-            );
+            GetModuleHandleExW(4, raw_main as _, &mut _discard); // GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
         },
         3 => unsafe { mi_thread_done() },
         _ => (),
