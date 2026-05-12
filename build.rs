@@ -5,14 +5,7 @@ fn main() {
     let mut build = cc::Build::new();
     let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let manifest = Path::new(&cargo_manifest_dir).join("mimalloc");
-    // let include_dir = Path::new(&cargo_manifest_dir)
-    //     .join("mimalloc/")
-    //     .join("include")
-    //     .to_str()
-    //     .expect("include path is not valid UTF-8")
-    //     .to_string();
 
-    // println!("cargo:INCLUDE_DIR={include_dir}");
     build
         .file(manifest.join("src").join("static.c"))
         .include(manifest.join("include"));
@@ -26,7 +19,6 @@ fn main() {
     if env::var_os("CARGO_FEATURE_DEBUG").is_some() {
         build.define("MI_DEBUG", "3").define("MI_SHOW_ERRORS", "1");
     } else {
-        // Remove heavy debug assertions etc
         build.define("MI_DEBUG", "0");
     }
     if build.get_compiler().is_like_msvc() || build.get_compiler().is_like_clang_cl() {
@@ -60,7 +52,7 @@ fn main() {
             .flag("-ftls-model=initial-exec");
         println!("cargo:rustc-link-arg=-Wl,--entry=raw_main");
     }
-    // Link with libs needed on Windows
+    // link with libs needed on Windows according to cmakelist
     for lib in ["psapi", "shell32", "user32", "advapi32", "bcrypt"] {
         println!("cargo:rustc-link-lib={}", lib);
     }
