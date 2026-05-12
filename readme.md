@@ -1,6 +1,6 @@
 # Mimalloc Replace
 
-[English](./readme.md) | [中文](./readme-zh_CN.md)
+English | [中文](./readme-zh_CN.md)
 
 `mimalloc-replace` is an injection module that dynamically hooks the default allocator of the Windows UCRT, forwarding corresponding calls to the built-in mimalloc allocator and using reallocation functions to migrate active data from the UCRT heap into the mimalloc heap.
 
