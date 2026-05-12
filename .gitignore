@@ -1,5 +1,5 @@
 /target
 Cargo.lock
 /.vscode
-./zig-out
-./.zig-cache
+/zig-out
+/.zig-cache

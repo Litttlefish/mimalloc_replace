@@ -115,12 +115,13 @@ macro_rules! boilerplate {
                         call_fn!($free_fn, FreeFn)($check_expr);
                         core::ptr::null_mut()
                     } else {
-                        let old_size = call_fn!($size_fn, $size_ty)($($size),*);
-                        let new_size = $cold_count;
-                        let to = $cold_mi(new_size,$($cold_arg),*);
-                        core::ptr::copy_nonoverlapping($check_expr, to, old_size.min(new_size));
-                        call_fn!($free_fn, FreeFn)($check_expr);
-                        to
+                        let alloc_size = $cold_count;
+                        let allocated = $cold_mi(alloc_size,$($cold_arg),*);
+                        if !allocated.is_null() {
+                            core::ptr::copy_nonoverlapping($check_expr, allocated, call_fn!($size_fn, $size_ty)($($size),*).min(alloc_size));
+                            call_fn!($free_fn, FreeFn)($check_expr);
+                        }
+                        allocated
                     }
                 }
             }
@@ -282,7 +283,11 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                     mi_srecalloc_aligned_at as _,
                 )
                 .unwrap();
-            core::mem::forget(session.commit().expect("transaction failed"));
+            session
+                .commit()
+                .expect("transaction failed")
+                .into_iter()
+                .for_each(core::mem::forget);
             let mut _discard = HMODULE::default();
             GetModuleHandleExW(4, raw_main as _, &mut _discard); // GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
         },
