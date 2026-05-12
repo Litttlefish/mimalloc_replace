@@ -22,12 +22,7 @@ fn main() {
         .define("MI_SKIP_COLLECT_ON_EXIT", "1")
         .define("MI_MALLOC_OVERRIDE", None)
         .define("MI_STATIC_LIB", None);
-    if cfg!(target_feature = "avx2") {
-        build
-            .flag("-march=haswell")
-            .flag("-mavx2")
-            .define("MI_OPT_SIMD", "1");
-    }
+
     if env::var_os("CARGO_FEATURE_DEBUG").is_some() {
         build.define("MI_DEBUG", "3").define("MI_SHOW_ERRORS", "1");
     } else {
@@ -35,11 +30,28 @@ fn main() {
         build.define("MI_DEBUG", "0");
     }
     if build.get_compiler().is_like_msvc() || build.get_compiler().is_like_clang_cl() {
-        build.flag("/O2").flag("/Ob2"); // idk if this works
+        if cfg!(target_feature = "avx2") {
+            build.flag("/arch:AVX2").define("MI_OPT_SIMD", "1");
+        }
+        build
+            .cpp(true)
+            .flag("/O2")
+            .flag("/Ob2")
+            .flag("/Oi")
+            .flag("/Oy")
+            .flag("/Gy")
+            .flag("/GL")
+            .flag("/GT")
+            .flag("/Zc:inline"); // idk if this works
         println!("cargo:rustc-link-arg=/ENTRY:raw_main");
     } else {
+        if cfg!(target_feature = "avx2") {
+            build
+                .flag("-march=haswell")
+                .flag("-mavx2")
+                .define("MI_OPT_SIMD", "1");
+        }
         build
-            // .flag("-Wno-unknown-pragmas")
             .flag("-Wno-date-time")
             .flag("-flto=thin")
             .flag("-O3")
