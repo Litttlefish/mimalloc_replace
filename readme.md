@@ -27,7 +27,7 @@ A common solution is to maintain dual heaps – determine which heap a pointer b
 1. Call the original UCRT `_msize` to obtain the old memory size.
 2. Allocate a new block of the requested size from the mimalloc heap.
 3. Copy the old data to the new heap according to the semantics of `realloc`/`recalloc` (using `copy_nonoverlapping`).
-4. Call the original UCRT `_free_base` to free the old memory.
+4. Call the corresponding original UCRT free function to free the old memory.
 5. Return the new mimalloc pointer.
 
 As the program runs, active data from the old heap is gradually “digested” and migrated into mimalloc.
@@ -44,19 +44,19 @@ As the program runs, active data from the old heap is gradually “digested” a
 
 ## Covered API List
 
-**Basic allocation**
+**Basic allocation**:
 `malloc`, `calloc`, `realloc`, `free`
 
-**Strings / environment**
+**Strings / environment**:
 `_strdup`, `_wcsdup`, `_mbsdup`, `_dupenv_s`, `_wdupenv_s`
 
-**Heap information / expansion**
+**Heap information / expansion**:
 `_expand`, `_msize`, `_recalloc`
 
-**Aligned allocation**
+**Aligned allocation**:
 `_aligned_malloc`, `_aligned_realloc`, `_aligned_recalloc`, `_aligned_msize`, `_aligned_free`
 
-**Aligned allocation with offset**
+**Aligned allocation with offset**:
 `_aligned_offset_malloc`, `_aligned_offset_realloc`, `_aligned_offset_recalloc`
 
 ## Usage
