@@ -38,6 +38,8 @@ As the program runs, active data from the old heap is gradually “digested” a
 
 **Self-hosting allocation** – The module’s own memory allocations directly use the built-in mimalloc allocator, so no deadlocks can occur.
 
+**No Trampoline** – Imitating original functions based on UCRT source code, leveraging low-level functions.
+
 **Restoring original mimalloc behaviour** – Initializes the global process heap at startup and correctly calls `mi_thread_done` on thread exit to ensure timely reclamation of thread resources.
 
 **Custom module entry point** – Uses the `entry` linker option to specify a custom entry point, ensuring hooks are installed as early as possible.

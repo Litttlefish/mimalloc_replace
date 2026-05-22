@@ -20,7 +20,7 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 **即插即用**：注入即完成接管，操作极简。
 
-**智能指针归属判断**：利用 mimalloc 的 `mi_any_heap_contains` 函数（常数耗时）判断指针是否落在 mimalloc 堆内。若是，则交由 mimalloc 处理；若否，则触发迁移/释放逻辑。
+**智能指针归属判断**：利用 mimalloc 的 `mi_any_heap_contains` 函数（常数耗时）判断指针是否落在 mimalloc 堆内。若是，则交由 mimalloc 处理，否则触发迁移/释放逻辑。
 
 **惰性数据迁移**：当对旧堆指针执行 `realloc`、`recalloc` 等重分配操作时，模块会：
 
@@ -30,6 +30,13 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 4. 调用原 UCRT 对应的释放函数释放旧内存
 5. 返回 mimalloc 的新指针
 
+此外，原始的 `_expand` 函数功能也为了加快重分配做了少量符合语义的修改：
+
+1. 检查原内存块尺寸
+2. 如果是扩容，直接拒绝并返回 null，使其使用可移动路线重分配至 mimalloc 堆
+3. 如果是缩容且原内存块尺寸小于 `0x4000` (LFH 堆单个块的最大尺寸)则返回原指针
+4. 都不是才会尝试调用 `RtlReAllocateHeap` 进行原地缩容操作
+
 随着程序运行，旧堆的活跃数据会被逐渐“消化”并迁移至 mimalloc。
 
 **防卸载保护**：在 `DLL_PROCESS_ATTACH` 时，模块会通过 `GetModuleHandleExW` 增加引用计数，防止注入的 DLL 在进程运行期间被意外卸载。
@@ -38,6 +45,8 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 **分配自举**：模块自身的内存分配直接使用自带的 mimalloc 分配器，不存在死锁问题。
 
+**无跳板**：根据UCRT源码，利用底层ntdll函数模拟原函数。
+
 **mimalloc 原始功能还原**：在启动时初始化全局进程堆，并在线程退出时正确调用 `mi_thread_done`，以保证线程资源的及时回收。
 
 **自定义模块入口**：使用 `entry` 编译参数指定模块入口，保证其尽快加载 Hook 完成内联。
@@ -45,19 +54,21 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 ## 覆盖的 API 列表
 
 **基础分配**：
-`malloc`， `calloc`， `realloc`， `free`
+`malloc`， `calloc`，`realloc`，`free`
 
 **字符串/环境变量**：
-`_strdup`，`_wcsdup`， `_mbsdup`，`_dupenv_s`，`_wdupenv_s`
+`_strdup`，`_wcsdup`，`_dupenv_s`，`_wdupenv_s`
 
 **堆信息/扩展**：
 `_expand`，`_msize`，`_recalloc`
 
 **对齐分配**：
-`_aligned_malloc`， `_aligned_realloc`， `_aligned_recalloc`， `_aligned_msize`， `_aligned_free`
+`_aligned_malloc`，`_aligned_realloc`，`_aligned_recalloc`，`_aligned_msize`，`_aligned_free`
 
 **带偏移对齐分配**：
-`_aligned_offset_malloc`，`_aligned_offset_realloc`， `_aligned_offset_recalloc`
+`_aligned_offset_malloc`，`_aligned_offset_realloc`，`_aligned_offset_recalloc`
+
+以及它们的 `_o_` 变体(用于 `ucrt.osmode.lib` )
 
 ## 使用
 
@@ -73,7 +84,7 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 **个人发行版的变动**：作者个人的 Release 编译版本对 mimalloc 的编译参数做了如下修改：
 
-1. 启用了平台 / 向量化支持，使用者需确认 CPU 支持 `haswell/avx2` 特性，时间范围大约在 2013 年以后。
+1. 启用了平台 / 向量化支持，使用者需确认 CPU 支持 `avx2` 特性(32位程序则是 `sse4.2` 特性)，最低平台为 `haswell`，时间范围大约在 2013 年以后。
 2. 启用了 `MI_SKIP_COLLECT_ON_EXIT` 功能，在程序退出时不会主动回收内存，而是由操作系统自行完成。
     P.S. 这一条其实没有用，因为 `mimalloc-replace` 并没有调用 `mi_process_done`，本来就不会在退出时回收内存，这更像是声明(
 
@@ -90,7 +101,7 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 ## DLC内容
 
-此 repo 内还附带了一份简易 Zig 构建文件，可以利用它将 mimalloc 编译成可供 `mimalloc-redirect.dll` 使用的 DLL 链接库，同样默认启用了 `haswell/avx2` 特性、 `MI_SKIP_COLLECT_ON_EXIT` 和 `MI_WIN_INIT_USE_RAW_DLLMAIN`。
+此 repo 内还附带了一份简易 Zig 构建文件，可以利用它将 mimalloc 编译成可供 `mimalloc-redirect.dll` 使用的 DLL 链接库，同样默认启用了 `avx2/sse4.2` 特性、 `MI_SKIP_COLLECT_ON_EXIT` 和 `MI_WIN_INIT_USE_RAW_DLLMAIN`。
 
 ## 免责声明
 

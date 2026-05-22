@@ -24,6 +24,8 @@ fn main() {
     if build.get_compiler().is_like_msvc() || build.get_compiler().is_like_clang_cl() {
         if cfg!(target_feature = "avx2") {
             build.flag("/arch:AVX2").define("MI_OPT_SIMD", "1");
+        } else if cfg!(target_feature = "sse4.2") {
+            build.flag("/arch:SSE4.2").define("MI_OPT_SIMD", "1");
         }
         build
             .cpp(true)
@@ -42,12 +44,18 @@ fn main() {
                 .flag("-march=haswell")
                 .flag("-mavx2")
                 .define("MI_OPT_SIMD", "1");
+        } else if cfg!(target_feature = "sse4.2") {
+            build
+                .flag("-march=haswell")
+                .flag("-msse4.2")
+                .define("MI_OPT_SIMD", "1");
         }
         build
             .flag("-Wno-date-time")
             .flag("-flto=thin")
             .flag("-O3")
             .flag("-fms-extensions")
+            .flag("-fomit-frame-pointer")
             .flag("-fvisibility=hidden")
             .flag("-ftls-model=initial-exec");
         println!("cargo:rustc-link-arg=-Wl,--entry=raw_main");

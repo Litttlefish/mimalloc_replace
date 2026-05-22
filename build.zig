@@ -49,6 +49,8 @@ pub fn build(b: *std.Build) void {
     };
 
     const shared_x86_flags = [_][]const u8{
+        "-march=haswell",
+        "-msse4.2",
         "-flto=full",
         "-Wno-date-time",
         "-fms-extensions",
@@ -65,10 +67,10 @@ pub fn build(b: *std.Build) void {
     mimodule.addCMacro("MI_MALLOC_OVERRIDE", "");
     mimodule.addCMacro("MI_SHARED_LIB_EXPORT", "");
     mimodule.addCMacro("MI_SHARED_LIB", "");
+    mimodule.addCMacro("MI_OPT_SIMD", "1");
     if (target.result.cpu.arch == .x86) {
         mimodule.addObjectFile(b.path("mimalloc/bin/mimalloc-redirect32.lib"));
     } else {
-        mimodule.addCMacro("MI_OPT_SIMD", "1");
         mimodule.addObjectFile(b.path("mimalloc/bin/mimalloc-redirect.lib"));
     }
     // mimodule.linkSystemLibrary("psapi", .{});
