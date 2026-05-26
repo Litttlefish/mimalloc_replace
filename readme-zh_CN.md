@@ -39,6 +39,12 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 随着程序运行，旧堆的活跃数据会被逐渐“消化”并迁移至 mimalloc。
 
+**注入时机不敏感**: 与传统 allocator 替换方案不同，`mimalloc-replace` 不要求在进程启动早期完成接管。
+
+由于模块会在后续 `realloc / _expand / recalloc` 等路径中持续迁移旧堆活跃对象，因此即便在程序运行中后期注入，旧 UCRT 堆中的活跃数据也会随着运行逐步收敛至 mimalloc 堆。
+
+在长期运行场景下，其最终内存状态会逐渐接近“原生 mimalloc 进程”。
+
 **防卸载保护**：在 `DLL_PROCESS_ATTACH` 时，模块会通过 `GetModuleHandleExW` 增加引用计数，防止注入的 DLL 在进程运行期间被意外卸载。
 
 **全量 UCRT API 覆盖**：不仅覆盖基础的 `malloc`/`free`，还完整 Hook 了 `_aligned_*` 系列、`_expand`、`_msize`、`strdup`/`wcsdup`/`mbsdup` 等 UCRT 扩展函数。

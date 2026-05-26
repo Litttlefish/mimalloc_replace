@@ -39,6 +39,12 @@ Additionally, the original `_expand` function has been slightly modified in line
 
 As the program runs, active data from the old heap is gradually “digested” and migrated into mimalloc.
 
+**Insensitive to injection timing** – Unlike traditional allocator replacement solutions, `mimalloc-replace` does not require takeover to be completed early in the process startup.
+
+Because the module continuously migrates active objects from the old heap along subsequent `realloc / _expand / recalloc` paths, even if injected in the middle or late stages of program execution, the active data in the old UCRT heap will gradually converge into the mimalloc heap as the program runs.
+
+In long-running scenarios, its final memory state will gradually approach that of a "native mimalloc process".
+
 **Anti-unload protection** – At `DLL_PROCESS_ATTACH`, the module increments its own reference count via `GetModuleHandleExW`, preventing the injected DLL from being accidentally unloaded while the process is running.
 
 **Full UCRT API coverage** – Not only basic `malloc`/`free`, but also complete hooks for `_aligned_*` series, `_expand`, `_msize`, `strdup`/`wcsdup`/`mbsdup`, and other UCRT extension functions.
