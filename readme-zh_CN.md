@@ -84,7 +84,7 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 **个人发行版的变动**：作者个人的 Release 编译版本对 mimalloc 的编译参数做了如下修改：
 
-1. 启用了平台 / 向量化支持，使用者需确认 CPU 支持 `avx2` 特性(32位程序则是 `sse4.2` 特性)，最低平台为 `haswell`，时间范围大约在 2013 年以后。
+1. 启用了平台 / 向量化支持，使用者需确认 CPU 支持 `avx2` 特性(32位程序则是 `sse4.2` 特性)，对应平台为 `haswell`，时间范围大约在 2013 年以后。
 2. 启用了 `MI_SKIP_COLLECT_ON_EXIT` 功能，在程序退出时不会主动回收内存，而是由操作系统自行完成。
     P.S. 这一条其实没有用，因为 `mimalloc-replace` 并没有调用 `mi_process_done`，本来就不会在退出时回收内存，这更像是声明(
 

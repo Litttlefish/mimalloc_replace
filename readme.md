@@ -30,6 +30,13 @@ A common solution is to maintain dual heaps – determine which heap a pointer b
 4. Call the corresponding original UCRT free function to free the old memory.
 5. Return the new mimalloc pointer.
 
+Additionally, the original `_expand` function has been slightly modified in line with its semantics to accelerate reallocation:
+
+1. Check the original memory block size.
+2. If it is an expansion, directly reject it and return null, forcing it to use the movable reallocation route to migrate to the mimalloc heap.
+3. If it is a shrinkage and the original memory block size is less than `0x4000` (the maximum size of a single block in the LFH heap), return the original pointer.
+4. If neither, attempt to call `RtlReAllocateHeap` for in-place shrinkage.
+
 As the program runs, active data from the old heap is gradually “digested” and migrated into mimalloc.
 
 **Anti-unload protection** – At `DLL_PROCESS_ATTACH`, the module increments its own reference count via `GetModuleHandleExW`, preventing the injected DLL from being accidentally unloaded while the process is running.
@@ -61,6 +68,8 @@ As the program runs, active data from the old heap is gradually “digested” a
 **Aligned allocation with offset**:
 `_aligned_offset_malloc`, `_aligned_offset_realloc`, `_aligned_offset_recalloc`
 
+And their `_o_` variants (used for `ucrt.osmode.lib`)
+
 ## Usage
 
 Generic DLL injection tools are sufficient.
@@ -75,7 +84,7 @@ Given that the UCRT heap’s global lock no longer meaningfully affects performa
 
 **Personal build modifications** – The author's release binaries are compiled with the following changes to mimalloc:
 
-1. Platform / vectorization support is enabled. Users need to ensure their CPU supports **Haswell / AVX2** features (roughly 2013 and later).
+1. Platform / vectorization support is enabled. Users need to ensure their CPU supports **AVX2** features (for 32-bit programs, **SSE4.2** features), which correspond to **haswell** platform, roughly 2013 and later.
 2. `MI_SKIP_COLLECT_ON_EXIT` is enabled, so memory is not actively reclaimed on process exit; the OS handles it instead.  
    P.S. This is actually useless here because `mimalloc-replace` never calls `mi_process_done`, so there is no exit-time reclamation anyway. Think of it more as a declaration of intent.
 
@@ -92,7 +101,7 @@ Furthermore, considering how Rust/C symbol linkage works, the TLS callback most 
 
 ## DLC Content
 
-This repository also contains a simple Zig build file that can be used to compile mimalloc into a DLL import library suitable for use with `mimalloc-redirect.dll`. It also enables Haswell/AVX2 features, `MI_SKIP_COLLECT_ON_EXIT`, and `MI_WIN_INIT_USE_RAW_DLLMAIN` by default.
+This repository also contains a simple Zig build file that can be used to compile mimalloc into a DLL import library suitable for use with `mimalloc-redirect.dll`. It also enables `AVX2 / SSE4.2` features, `MI_SKIP_COLLECT_ON_EXIT`, and `MI_WIN_INIT_USE_RAW_DLLMAIN` by default.
 
 ## Disclaimer
 
