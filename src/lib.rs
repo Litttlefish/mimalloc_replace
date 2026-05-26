@@ -100,8 +100,8 @@ const PTR_SIZE: usize = size_of::<*const c_void>();
 #[inline(always)]
 fn restore_base(p: *const c_void) -> *const c_void {
     unsafe {
-        *(p.map_addr(|p| (p as usize & !(PTR_SIZE - 1)) - PTR_SIZE)
-            .cast())
+        *(p.cast::<*const c_void>()
+            .map_addr(|p| (p as usize & !(PTR_SIZE - 1)) - PTR_SIZE))
     }
 }
 
