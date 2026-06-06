@@ -51,10 +51,11 @@ fn main() {
                 .define("MI_OPT_SIMD", "1");
         }
         build
+            .flag("-Wno-unknown-pragmas")
             .flag("-Wno-date-time")
             .flag("-flto=thin")
             .flag("-O3")
-            .flag("-fms-extensions")
+            // .flag("-fms-extensions")
             .flag("-fomit-frame-pointer")
             .flag("-fvisibility=hidden")
             .flag("-ftls-model=initial-exec");

@@ -53,7 +53,7 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 **无跳板**：根据UCRT源码，利用底层ntdll函数模拟原函数。
 
-**mimalloc 原始功能还原**：在启动时初始化全局进程堆，并在线程退出时正确调用 `mi_thread_done`，以保证线程资源的及时回收。
+**mimalloc 原始功能还原**：在启动时初始化全局进程堆，并在线程退出时正确通过TLS回调调用 `mi_thread_done`，以保证线程资源的及时回收。
 
 **自定义模块入口**：使用 `entry` 编译参数指定模块入口，保证其尽快加载 Hook 完成内联。
 
@@ -101,13 +101,13 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 个人发行版里,我启用了 `MI_WIN_INIT_USE_RAW_DLLMAIN`,这会让 mimalloc 进行两个操作:
 
 1. 注册 `_pRawDllMain`，这是基于 CRT 的默认初始化回调，而 `entry` 指定了自定义入口，CRT 的默认初始化函数本来就不会运行。
-2. 注册 TLS 回调，但在 DLL 模式下会被略过。
+2. 注册 TLS 回调，但由于我的编译器未启用微软扩展的pragma，这部分会完全被忽略，哪怕使用msvc编译留下来也会因为模块是 DLL 格式而不会工作。
 
-再考虑到 Rust/C 的链接符号处理，TLS 回调本身大概率不会留下来，哪怕留下来也会因为模块是 DLL 格式而不会工作，我们就可以安全地在自己的 dllmain 函数里安排 mimalloc 初始化 / 线程回收等操作了。
+由此我们就可以安全地在自己的 dllmain 函数里安排 mimalloc 初始化 / 注册tls回调进行线程回收等操作了。
 
 ## DLC内容
 
-此 repo 内还附带了一份简易 Zig 构建文件，可以利用它将 mimalloc 编译成可供 `mimalloc-redirect.dll` 使用的 DLL 链接库，同样默认启用了 `avx2/sse4.2` 特性、 `MI_SKIP_COLLECT_ON_EXIT` 和 `MI_WIN_INIT_USE_RAW_DLLMAIN`。
+此 repo 内还附带了一份简易 Zig 构建文件，可以利用它将 mimalloc 编译成可供 `mimalloc-redirect.dll` 使用的 DLL 链接库，同样默认启用了 `avx2/sse4.2` 特性、 `MI_SKIP_COLLECT_ON_EXIT` 和 `MI_WIN_INIT_USE_RAW_DLLMAIN`，并忽略了TLS注册。
 
 ## 免责声明
 

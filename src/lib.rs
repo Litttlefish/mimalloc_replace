@@ -227,6 +227,17 @@ macro_rules! acquire {
     };
 }
 
+unsafe extern "system" fn mi_tls_detach(_: *mut c_void, reason: u32, _: *mut c_void) {
+    if reason == 3 {
+        unsafe { mi_thread_done() };
+    }
+}
+
+#[used]
+#[unsafe(link_section = ".CRT$XLY")]
+static TLS_CALLBACK_DETACH: unsafe extern "system" fn(*mut c_void, u32, *mut c_void) =
+    mi_tls_detach;
+
 #[unsafe(no_mangle)]
 unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) -> BOOL {
     match reason {
@@ -235,12 +246,12 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
             let mut session = neohook::DetourTransaction::begin();
             session.update_all_threads();
             let module = GetModuleHandleW(w!("ucrtbase"));
+            assert!(!module.is_null(), "ucrtbase.dll not found in process");
             HEAP = core::mem::transmute::<*mut (), unsafe extern "C" fn() -> HANDLE>(acquire!(
                 module,
                 c"_get_heap_handle"
             ))();
 
-            assert!(!module.is_null(), "ucrtbase.dll not found in process");
             session
                 .attach(acquire!(module, c"malloc"), mi_malloc as _)
                 .unwrap();
@@ -402,11 +413,10 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                 .expect("transaction failed")
                 .into_iter()
                 .for_each(core::mem::forget);
-            let mut _discard = HMODULE::default();
-            GetModuleHandleExW(4, raw_main as _, &mut _discard); // GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+            let mut discard = HMODULE::default(); // GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+            GetModuleHandleExW(4, raw_main as _, &mut discard);
+            DisableThreadLibraryCalls(discard)
         },
-        3 => unsafe { mi_thread_done() },
-        _ => (),
+        _ => TRUE,
     }
-    TRUE
 }

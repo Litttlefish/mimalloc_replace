@@ -53,7 +53,7 @@ In long-running scenarios, its final memory state will gradually approach that o
 
 **No Trampoline** – Imitating original functions based on UCRT source code, leveraging low-level functions.
 
-**Restoring original mimalloc behaviour** – Initializes the global process heap at startup and correctly calls `mi_thread_done` on thread exit to ensure timely reclamation of thread resources.
+**Restoring original mimalloc behaviour** – Initializes the global process heap at startup and correctly calls `mi_thread_done` via TLS callback on thread exit to ensure timely reclamation of thread resources.
 
 **Custom module entry point** – Uses the `entry` linker option to specify a custom entry point, ensuring hooks are installed as early as possible.
 
@@ -63,7 +63,7 @@ In long-running scenarios, its final memory state will gradually approach that o
 `malloc`, `calloc`, `realloc`, `free`
 
 **Strings / environment**:
-`_strdup`, `_wcsdup`, `_mbsdup`, `_dupenv_s`, `_wdupenv_s`
+`_strdup`, `_wcsdup`, `_dupenv_s`, `_wdupenv_s`
 
 **Heap information / expansion**:
 `_expand`, `_msize`, `_recalloc`
@@ -101,13 +101,13 @@ If you have different requirements, please modify `build.rs` and rebuild.
 In the author's personal build, `MI_WIN_INIT_USE_RAW_DLLMAIN` is enabled. This makes mimalloc attempt two things:
 
 1. Register a `_pRawDllMain` based on the CRT’s default initialisation callback. However, because `entry` specifies a custom entry point, the CRT’s default initialisation function will not run anyway.
-2. Register a TLS callback, which is skipped in DLL mode.
+2. Register a TLS callback, but because my compiler does not enable Microsoft extension pragmas, this part will be completely ignored; even if it were left in by compiling with MSVC, it would not function because the module is a DLL.
 
-Furthermore, considering how Rust/C symbol linkage works, the TLS callback most likely won’t even remain; even if it did, it would not function because the module is a DLL. Therefore we can safely arrange mimalloc initialisation and thread teardown operations inside our own dllmain function.
+Therefore we can safely arrange mimalloc initialisation and register TLS callbacks for thread reclamation inside our own dllmain function.
 
 ## DLC Content
 
-This repository also contains a simple Zig build file that can be used to compile mimalloc into a DLL import library suitable for use with `mimalloc-redirect.dll`. It also enables `AVX2 / SSE4.2` features, `MI_SKIP_COLLECT_ON_EXIT`, and `MI_WIN_INIT_USE_RAW_DLLMAIN` by default.
+This repository also contains a simple Zig build file that can be used to compile mimalloc into a DLL import library suitable for use with `mimalloc-redirect.dll`. It also enables `AVX2 / SSE4.2` features, `MI_SKIP_COLLECT_ON_EXIT`, and `MI_WIN_INIT_USE_RAW_DLLMAIN` by default, and ignores TLS registration.
 
 ## Disclaimer
 
