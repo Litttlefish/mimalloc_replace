@@ -76,7 +76,6 @@ windows_link::link!("ntdll.dll" "system" fn RtlReAllocateHeap(heap: HANDLE, flag
 unsafe fn free_base(p: *const c_void) {
     unsafe { RtlFreeHeap(HEAP, 0, p) };
 }
-
 #[inline(always)]
 unsafe fn msize_base(p: *const c_void) -> usize {
     unsafe { RtlSizeHeap(HEAP, 0, p) }
@@ -101,7 +100,7 @@ const PTR_SIZE: usize = size_of::<*const c_void>();
 fn restore_base(p: *const c_void) -> *const c_void {
     unsafe {
         *(p.cast::<*const c_void>()
-            .map_addr(|p| (p as usize & !(PTR_SIZE - 1)) - PTR_SIZE))
+            .map_addr(|p| (p & !(PTR_SIZE - 1)) - PTR_SIZE))
     }
 }
 

@@ -6,7 +6,7 @@ links = "mimalloc"
 
 [dependencies]
 windows-sys = { version = "0.61.*", features = ["Win32_System_LibraryLoader"] }
-neohook = "0.1.*"
+neohook = "0.3.*"
 windows-link = "0.2.*"
 likely_stable = "0.1.3"
 # wraith-rs = { version = "0.1.8", features = ["full"] }
