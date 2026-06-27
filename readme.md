@@ -63,7 +63,7 @@ In long-running scenarios, its final memory state will gradually approach that o
 `malloc`, `calloc`, `realloc`, `free`
 
 **Strings / environment**:
-`_strdup`, `_wcsdup`, `_dupenv_s`, `_wdupenv_s`
+`_strdup`, `_mbsdup`(shares same address with `_strdup`), `_wcsdup`, `_dupenv_s`, `_wdupenv_s`
 
 **Heap information / expansion**:
 `_expand`, `_msize`, `_recalloc`

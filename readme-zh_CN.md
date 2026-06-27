@@ -63,7 +63,7 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 `malloc`， `calloc`，`realloc`，`free`
 
 **字符串/环境变量**：
-`_strdup`，`_wcsdup`，`_dupenv_s`，`_wdupenv_s`
+`_strdup`, `_mbsdup`(和 `_strdup` 地址相同)，`_wcsdup`，`_dupenv_s`，`_wdupenv_s`
 
 **堆信息/扩展**：
 `_expand`，`_msize`，`_recalloc`

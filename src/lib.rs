@@ -407,11 +407,33 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                 )
                 .unwrap();
 
+            // thanks for the info: https://github.com/AlienDwarf/neohook/issues/16
             session
-                .commit()
-                .expect("transaction failed")
-                .into_iter()
-                .for_each(core::mem::forget);
+                .attach(acquire!(module, c"_malloc_base"), mi_malloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__malloc_base"), mi_malloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_calloc_base"), mi_calloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__calloc_base"), mi_calloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_free_base"), mi_sfree as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__free_base"), mi_sfree as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_realloc_base"), mi_srealloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__realloc_base"), mi_srealloc as _)
+                .unwrap();
+
+            core::mem::forget(session.commit().expect("transaction failed"));
             let mut discard = HMODULE::default(); // GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
             GetModuleHandleExW(4, raw_main as _, &mut discard);
             DisableThreadLibraryCalls(discard)

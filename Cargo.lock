@@ -58,9 +58,9 @@ dependencies = [
 
 [[package]]
 name = "neohook"
-version = "0.3.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3abf0a88becfafa684309ad8baf9dbd3561084523b8ed1de819aaabea16dba7e"
+checksum = "708877aa788f85a0ff0b4bc686270b86ff661c3b0c375a20f267309d24d975ae"
 dependencies = [
  "iced-x86",
  "windows-sys",
