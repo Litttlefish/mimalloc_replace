@@ -407,7 +407,6 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                 )
                 .unwrap();
 
-            // thanks for the info: https://github.com/AlienDwarf/neohook/issues/16
             session
                 .attach(acquire!(module, c"_malloc_base"), mi_malloc as _)
                 .unwrap();
@@ -434,7 +433,7 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                 .unwrap();
 
             core::mem::forget(session.commit().expect("transaction failed"));
-            let mut discard = HMODULE::default(); // GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+            let mut discard = HMODULE::default();
             GetModuleHandleExW(4, raw_main as _, &mut discard);
             DisableThreadLibraryCalls(discard)
         },
