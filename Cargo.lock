@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "mimalloc_replace"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "cc",
  "likely_stable",
@@ -58,9 +58,9 @@ dependencies = [
 
 [[package]]
 name = "neohook"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a23faab63c6040d6165b712ab8bf04034b589bc791a1028f55c88a6dc725872"
+checksum = "14a0aa0efa6abc9a05e73afa4fb6750b131759b3e6e7b27bead0bb49bb820424"
 dependencies = [
  "iced-x86",
  "windows-sys",
