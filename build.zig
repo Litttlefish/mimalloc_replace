@@ -84,7 +84,7 @@ pub fn build(b: *std.Build) void {
     const libmimalloc = b.addLibrary(.{
         .name = "mimalloc",
         .linkage = .dynamic,
-        .version = .{ .major = 3, .minor = 3, .patch = 3 },
+        .version = .{ .major = 3, .minor = 4, .patch = 5 },
         .root_module = mimodule,
     });
 
