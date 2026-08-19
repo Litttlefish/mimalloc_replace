@@ -18,8 +18,8 @@ unsafe impl core::alloc::GlobalAlloc for SelfAllocator {
         unsafe { mi_zalloc_aligned(layout.size(), layout.align()).cast() }
     }
     #[inline]
-    unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
-        unsafe { mi_free(ptr.cast()) }
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        unsafe { mi_free_size(ptr.cast(), layout.size()) }
     }
     #[inline]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
@@ -41,6 +41,7 @@ unsafe extern "C" {
     unsafe fn mi_calloc(c: usize, n: usize) -> *mut c_void;
     unsafe fn mi_realloc(p: *mut c_void, n: usize) -> *mut c_void;
     unsafe fn mi_free(p: *mut c_void);
+    unsafe fn mi_free_size(p: *mut c_void, size: usize);
 
     unsafe fn mi_strdup(s: *const c_char) -> *mut c_char;
     unsafe fn mi_wcsdup(s: *const c_ushort) -> *mut c_ushort;
