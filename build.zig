@@ -21,7 +21,6 @@ pub fn build(b: *std.Build) void {
         "src/alloc-aligned.c",
         "src/alloc-posix.c",
         "src/arena.c",
-        "src/arena-meta.c",
         "src/bitmap.c",
         "src/heap.c",
         "src/init.c",
@@ -32,9 +31,11 @@ pub fn build(b: *std.Build) void {
         "src/page-map.c",
         "src/random.c",
         "src/stats.c",
+        "src/subproc.c",
         "src/theap.c",
         "src/threadlocal.c",
         "src/prim/prim.c",
+        "src/prim/prim-tls.c",
     };
 
     const shared_flags = [_][]const u8{
@@ -84,7 +85,7 @@ pub fn build(b: *std.Build) void {
     const libmimalloc = b.addLibrary(.{
         .name = "mimalloc",
         .linkage = .dynamic,
-        .version = .{ .major = 3, .minor = 4, .patch = 5 },
+        .version = .{ .major = 3, .minor = 5, .patch = 0 },
         .root_module = mimodule,
     });
 
