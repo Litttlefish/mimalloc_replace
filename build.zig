@@ -33,6 +33,8 @@ pub fn build(b: *std.Build) void {
         "src/stats.c",
         "src/subproc.c",
         "src/theap.c",
+        "src/sample-guarded.c",
+        "src/sample-profile.c",
         "src/threadlocal.c",
         "src/prim/prim.c",
         "src/prim/prim-tls.c",
@@ -85,7 +87,7 @@ pub fn build(b: *std.Build) void {
     const libmimalloc = b.addLibrary(.{
         .name = "mimalloc",
         .linkage = .dynamic,
-        .version = .{ .major = 3, .minor = 5, .patch = 1 },
+        .version = .{ .major = 3, .minor = 5, .patch = 4 },
         .root_module = mimodule,
     });
 

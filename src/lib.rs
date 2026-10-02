@@ -252,6 +252,34 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                 c"_get_heap_handle"
             ))();
 
+            #[cfg(target_pointer_width = "64")]
+            {
+                session
+                    .attach(acquire!(module, c"_malloc_base"), mi_malloc as _)
+                    .unwrap();
+                session
+                    .attach(acquire!(module, c"_o__malloc_base"), mi_malloc as _)
+                    .unwrap();
+                session
+                    .attach(acquire!(module, c"_calloc_base"), mi_calloc as _)
+                    .unwrap();
+                session
+                    .attach(acquire!(module, c"_o__calloc_base"), mi_calloc as _)
+                    .unwrap();
+                session
+                    .attach(acquire!(module, c"_free_base"), mi_sfree as _)
+                    .unwrap();
+                session
+                    .attach(acquire!(module, c"_o__free_base"), mi_sfree as _)
+                    .unwrap();
+                session
+                    .attach(acquire!(module, c"_realloc_base"), mi_srealloc as _)
+                    .unwrap();
+                session
+                    .attach(acquire!(module, c"_o__realloc_base"), mi_srealloc as _)
+                    .unwrap();
+            }
+
             session
                 .attach(acquire!(module, c"malloc"), mi_malloc as _)
                 .unwrap();
@@ -406,31 +434,6 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                     acquire!(module, c"_o__aligned_offset_recalloc"),
                     mi_srecalloc_aligned_at as _,
                 )
-                .unwrap();
-
-            session
-                .attach(acquire!(module, c"_malloc_base"), mi_malloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__malloc_base"), mi_malloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_calloc_base"), mi_calloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__calloc_base"), mi_calloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_free_base"), mi_sfree as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__free_base"), mi_sfree as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_realloc_base"), mi_srealloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__realloc_base"), mi_srealloc as _)
                 .unwrap();
 
             core::mem::forget(session.commit().expect("transaction failed"));
