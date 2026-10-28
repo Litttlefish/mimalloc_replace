@@ -1,12 +1,12 @@
 [package]
 name = "mimalloc_replace"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 links = "mimalloc"
 
 [dependencies]
 windows-sys = { version = "0.61.*", features = ["Win32_System_LibraryLoader"] }
-neohook = "0.13.*"
+neohook = "0.16.*"
 windows-link = "0.100.*"
 likely_stable = "0.1.3"
 # wraith-rs = { version = "0.1.8", features = ["full"] }

@@ -32,7 +32,7 @@ static GLOBAL: SelfAllocator = SelfAllocator; // of course we allocate ourselves
 
 unsafe extern "C" {
     unsafe fn _mi_auto_process_init();
-    unsafe fn mi_thread_done();
+    unsafe fn _mi_thread_done();
 
     unsafe fn mi_any_heap_contains(p: *const c_void) -> bool;
 
@@ -223,13 +223,13 @@ boilerplate! {
 
 macro_rules! acquire {
     ($module:expr, $func:literal) => {
-        GetProcAddress($module, $func.as_ptr().cast()).unwrap_unchecked() as _
+        GetProcAddress($module, $func.as_ptr().cast()).unwrap() as _
     };
 }
 
 unsafe extern "system" fn mi_tls_detach(_: *mut c_void, reason: u32, _: *mut c_void) {
     if reason == 3 {
-        unsafe { mi_thread_done() };
+        unsafe { _mi_thread_done() };
     }
 }
 
