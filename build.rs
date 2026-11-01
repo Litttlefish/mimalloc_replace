@@ -13,9 +13,7 @@ fn main() {
     build
         .define("MI_WIN_INIT_USE_RAW_DLLMAIN", "1")
         .define("MI_TLS_MODEL_WIN32", "1")
-        .define("MI_SKIP_COLLECT_ON_EXIT", "1")
-        .define("MI_MALLOC_OVERRIDE", "1")
-        .define("MI_STATIC_LIB", "1");
+        .define("MI_SKIP_COLLECT_ON_EXIT", "1");
 
     if env::var_os("CARGO_FEATURE_DEBUG").is_some() {
         build.define("MI_DEBUG", "3").define("MI_SHOW_ERRORS", "1");
@@ -44,13 +42,11 @@ fn main() {
             build
                 .flag("-march=haswell")
                 .flag("-mavx2")
-                .flag("-fno-builtin-malloc")
                 .define("MI_OPT_SIMD", "1");
         } else if cfg!(target_feature = "sse4.2") {
             build
                 .flag("-march=haswell")
                 .flag("-msse4.2")
-                .flag("-fno-builtin-malloc")
                 .define("MI_OPT_SIMD", "1");
         }
         build
