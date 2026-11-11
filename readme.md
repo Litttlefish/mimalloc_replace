@@ -18,7 +18,9 @@ A common solution is to maintain dual heaps – determine which heap a pointer b
 
 ## Core Features
 
-**Plug and play** – Injection immediately completes the takeover. Operation is extremely simple.
+**Plug and play** – Injection immediately completes the takeover. No configuration, simple.
+
+**DllMain safe (hope so)** - Hooking within deadlock-free thread created with `ntdll`'s `NtCreateThreadEx` function instead of hanging threads/applying hooks directly within `DllMain`.
 
 **Smart pointer ownership detection** – Uses mimalloc’s `mi_any_heap_contains` function (constant-time) to check whether a pointer lives inside a mimalloc heap. If yes, mimalloc handles it; if not, the migration / free logic is triggered.
 
@@ -45,7 +47,7 @@ Because the module continuously migrates active objects from the old heap along 
 
 In long-running scenarios, its final memory state will gradually approach that of a "native mimalloc process".
 
-**Anti-unload protection** – At `DLL_PROCESS_ATTACH`, the module increments its own reference count via `GetModuleHandleExW`, preventing the injected DLL from being accidentally unloaded while the process is running.
+**Anti-unload protection** – At `DLL_PROCESS_ATTACH`, the module pins its own reference via `GetModuleHandleExW`, preventing the injected DLL from being accidentally unloaded while the process is running.
 
 **Full UCRT API coverage** – Not only basic `malloc`/`free`, but also complete hooks for `_aligned_*` series, `_expand`, `_msize`, `strdup`/`wcsdup`/`mbsdup`, and other UCRT extension functions.
 

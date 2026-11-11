@@ -18,7 +18,9 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 ## 核心特性
 
-**即插即用**：注入即完成接管，操作极简。
+**即插即用**：注入即完成接管，无需配置，操作极简。
+
+**DllMain安全（希望如此）**：使用 `ntdll` 的 `NtCreateThreadEx` 创建不会导致死锁的初始化线程完成hook，而不是在DllMain内直接挂起线程进行hook。
 
 **智能指针归属判断**：利用 mimalloc 的 `mi_any_heap_contains` 函数（常数耗时）判断指针是否落在 mimalloc 堆内。若是，则交由 mimalloc 处理，否则触发迁移/释放逻辑。
 
@@ -45,7 +47,7 @@ mimalloc 本身提供了`mimalloc-redirect.dll`和`minject.exe`，可以通过�
 
 在长期运行场景下，其最终内存状态会逐渐接近“原生 mimalloc 进程”。
 
-**防卸载保护**：在 `DLL_PROCESS_ATTACH` 时，模块会通过 `GetModuleHandleExW` 增加引用计数，防止注入的 DLL 在进程运行期间被意外卸载。
+**防卸载保护**：在 `DLL_PROCESS_ATTACH` 时，模块会通过 `GetModuleHandleExW` 固定自身引用，防止注入的 DLL 在进程运行期间被意外卸载。
 
 **全量 UCRT API 覆盖**：不仅覆盖基础的 `malloc`/`free`，还完整 Hook 了 `_aligned_*` 系列、`_expand`、`_msize`、`strdup`/`wcsdup`/`mbsdup` 等 UCRT 扩展函数。
 

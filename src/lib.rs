@@ -3,7 +3,10 @@
 
 use core::{alloc::Layout, ffi::*};
 use windows_sys::{
-    Win32::{Foundation::*, System::LibraryLoader::*},
+    Win32::{
+        Foundation::*,
+        System::{self, LibraryLoader::*},
+    },
     core::*,
 };
 
@@ -72,6 +75,7 @@ static mut HEAP: HANDLE = core::ptr::null_mut();
 windows_link::link!("ntdll.dll" "system" fn RtlFreeHeap(heap: HANDLE, flags: u32, p: *const c_void) -> BOOL);
 windows_link::link!("ntdll.dll" "system" fn RtlSizeHeap(heap: HANDLE, flags: u32, p: *const c_void) -> usize);
 windows_link::link!("ntdll.dll" "system" fn RtlReAllocateHeap(heap: HANDLE, flags: u32, p: *mut c_void, n: usize) -> *mut c_void);
+windows_link::link!("ntdll.dll" "system" fn NtCreateThreadEx(handle: *mut HANDLE, access: u32, objattrib: *mut c_void, process: HANDLE, routine: *mut (), args: *mut c_void, create_flags: u32, zero_bits: usize, stack_size: usize, max_stack_size: usize, attrib_list: *mut c_void) -> NTSTATUS);
 
 #[inline(always)]
 unsafe fn free_base(p: *const c_void) {
@@ -227,208 +231,225 @@ macro_rules! acquire {
     };
 }
 
+extern "system" fn start(_: *mut c_void) -> u32 {
+    unsafe {
+        let mut session = neohook::DetourTransaction::begin();
+        let module = GetModuleHandleW(w!("ucrtbase"));
+        debug_assert!(!module.is_null(), "ucrtbase.dll not found in process");
+        HEAP = System::Memory::GetProcessHeap();
+
+        #[cfg(target_pointer_width = "64")]
+        {
+            session
+                .attach(acquire!(module, c"_malloc_base"), mi_malloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__malloc_base"), mi_malloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_calloc_base"), mi_calloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__calloc_base"), mi_calloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_free_base"), mi_sfree as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__free_base"), mi_sfree as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_realloc_base"), mi_srealloc as _)
+                .unwrap();
+            session
+                .attach(acquire!(module, c"_o__realloc_base"), mi_srealloc as _)
+                .unwrap();
+        }
+
+        session
+            .attach(acquire!(module, c"malloc"), mi_malloc as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o_malloc"), mi_malloc as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"calloc"), mi_calloc as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o_calloc"), mi_calloc as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"realloc"), mi_srealloc as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o_realloc"), mi_srealloc as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"free"), mi_sfree as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o_free"), mi_sfree as _)
+            .unwrap();
+
+        session
+            .attach(acquire!(module, c"_strdup"), mi_strdup as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__strdup"), mi_strdup as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_wcsdup"), mi_wcsdup as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__wcsdup"), mi_wcsdup as _)
+            .unwrap();
+
+        session
+            .attach(acquire!(module, c"_dupenv_s"), mi_dupenv_s as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__dupenv_s"), mi_dupenv_s as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_wdupenv_s"), mi_wdupenv_s as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__wdupenv_s"), mi_wdupenv_s as _)
+            .unwrap();
+
+        session
+            .attach(acquire!(module, c"_expand"), mi_sexpand as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__expand"), mi_sexpand as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_msize"), mi_smsize as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__msize"), mi_smsize as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_recalloc"), mi_srecalloc as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__recalloc"), mi_srecalloc as _)
+            .unwrap();
+
+        session
+            .attach(acquire!(module, c"_aligned_malloc"), mi_malloc_aligned as _)
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_o__aligned_malloc"),
+                mi_malloc_aligned as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_aligned_realloc"),
+                mi_srealloc_aligned as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_o__aligned_realloc"),
+                mi_srealloc_aligned as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_aligned_recalloc"),
+                mi_srecalloc_aligned as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_o__aligned_recalloc"),
+                mi_srecalloc_aligned as _,
+            )
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_aligned_msize"), mi_smsize_aligned as _)
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_o__aligned_msize"),
+                mi_smsize_aligned as _,
+            )
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_aligned_free"), mi_sfree_aligned as _)
+            .unwrap();
+        session
+            .attach(acquire!(module, c"_o__aligned_free"), mi_sfree_aligned as _)
+            .unwrap();
+
+        session
+            .attach(
+                acquire!(module, c"_aligned_offset_malloc"),
+                mi_malloc_aligned_at as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_o__aligned_offset_malloc"),
+                mi_malloc_aligned_at as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_aligned_offset_realloc"),
+                mi_srealloc_aligned_at as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_o__aligned_offset_realloc"),
+                mi_srealloc_aligned_at as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_aligned_offset_recalloc"),
+                mi_srecalloc_aligned_at as _,
+            )
+            .unwrap();
+        session
+            .attach(
+                acquire!(module, c"_o__aligned_offset_recalloc"),
+                mi_srecalloc_aligned_at as _,
+            )
+            .unwrap();
+        session.update_all_threads();
+        core::mem::forget(session.commit().expect("transaction failed"));
+        _mi_thread_done();
+    }
+    0
+}
+
 #[unsafe(no_mangle)]
 unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) -> BOOL {
     match reason {
         1 => unsafe {
             _mi_auto_process_init();
-            let mut session = neohook::DetourTransaction::begin();
-            // session.update_all_threads();
-            let module = GetModuleHandleW(w!("ucrtbase"));
-            assert!(!module.is_null(), "ucrtbase.dll not found in process");
-            HEAP = core::mem::transmute::<*mut (), unsafe extern "C" fn() -> HANDLE>(acquire!(
-                module,
-                c"_get_heap_handle"
-            ))();
-
-            #[cfg(target_pointer_width = "64")]
-            {
-                session
-                    .attach(acquire!(module, c"_malloc_base"), mi_malloc as _)
-                    .unwrap();
-                session
-                    .attach(acquire!(module, c"_o__malloc_base"), mi_malloc as _)
-                    .unwrap();
-                session
-                    .attach(acquire!(module, c"_calloc_base"), mi_calloc as _)
-                    .unwrap();
-                session
-                    .attach(acquire!(module, c"_o__calloc_base"), mi_calloc as _)
-                    .unwrap();
-                session
-                    .attach(acquire!(module, c"_free_base"), mi_sfree as _)
-                    .unwrap();
-                session
-                    .attach(acquire!(module, c"_o__free_base"), mi_sfree as _)
-                    .unwrap();
-                session
-                    .attach(acquire!(module, c"_realloc_base"), mi_srealloc as _)
-                    .unwrap();
-                session
-                    .attach(acquire!(module, c"_o__realloc_base"), mi_srealloc as _)
-                    .unwrap();
-            }
-
-            session
-                .attach(acquire!(module, c"malloc"), mi_malloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o_malloc"), mi_malloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"calloc"), mi_calloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o_calloc"), mi_calloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"realloc"), mi_srealloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o_realloc"), mi_srealloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"free"), mi_sfree as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o_free"), mi_sfree as _)
-                .unwrap();
-
-            session
-                .attach(acquire!(module, c"_strdup"), mi_strdup as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__strdup"), mi_strdup as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_wcsdup"), mi_wcsdup as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__wcsdup"), mi_wcsdup as _)
-                .unwrap();
-
-            session
-                .attach(acquire!(module, c"_dupenv_s"), mi_dupenv_s as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__dupenv_s"), mi_dupenv_s as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_wdupenv_s"), mi_wdupenv_s as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__wdupenv_s"), mi_wdupenv_s as _)
-                .unwrap();
-
-            session
-                .attach(acquire!(module, c"_expand"), mi_sexpand as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__expand"), mi_sexpand as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_msize"), mi_smsize as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__msize"), mi_smsize as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_recalloc"), mi_srecalloc as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__recalloc"), mi_srecalloc as _)
-                .unwrap();
-
-            session
-                .attach(acquire!(module, c"_aligned_malloc"), mi_malloc_aligned as _)
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_o__aligned_malloc"),
-                    mi_malloc_aligned as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_aligned_realloc"),
-                    mi_srealloc_aligned as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_o__aligned_realloc"),
-                    mi_srealloc_aligned as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_aligned_recalloc"),
-                    mi_srecalloc_aligned as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_o__aligned_recalloc"),
-                    mi_srecalloc_aligned as _,
-                )
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_aligned_msize"), mi_smsize_aligned as _)
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_o__aligned_msize"),
-                    mi_smsize_aligned as _,
-                )
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_aligned_free"), mi_sfree_aligned as _)
-                .unwrap();
-            session
-                .attach(acquire!(module, c"_o__aligned_free"), mi_sfree_aligned as _)
-                .unwrap();
-
-            session
-                .attach(
-                    acquire!(module, c"_aligned_offset_malloc"),
-                    mi_malloc_aligned_at as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_o__aligned_offset_malloc"),
-                    mi_malloc_aligned_at as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_aligned_offset_realloc"),
-                    mi_srealloc_aligned_at as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_o__aligned_offset_realloc"),
-                    mi_srealloc_aligned_at as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_aligned_offset_recalloc"),
-                    mi_srecalloc_aligned_at as _,
-                )
-                .unwrap();
-            session
-                .attach(
-                    acquire!(module, c"_o__aligned_offset_recalloc"),
-                    mi_srecalloc_aligned_at as _,
-                )
-                .unwrap();
-
-            core::mem::forget(session.commit().expect("transaction failed"));
-            let mut discard = HMODULE::default();
-            GetModuleHandleExW(1 | 4, raw_main as _, &mut discard);
-            FreeLibrary(discard)
+            let mut handle = core::ptr::null_mut();
+            NtCreateThreadEx(
+                &raw mut handle,
+                System::Threading::THREAD_ALL_ACCESS,
+                core::ptr::null_mut(),
+                System::Threading::GetCurrentProcess(),
+                start as _,
+                core::ptr::null_mut(),
+                0x2, // THREAD_CREATE_FLAGS_SKIP_THREAD_ATTACH
+                0,
+                0,
+                0,
+                core::ptr::null_mut(),
+            );
+            CloseHandle(handle);
+            GetModuleHandleExW(1 | 4, start as _, &mut handle);
+            FreeLibrary(handle)
         },
         3 => unsafe {
             _mi_thread_done();
