@@ -91,7 +91,7 @@ unsafe fn expand_base(p: *mut c_void, n: usize) -> *mut c_void {
         let ln = msize_base(p);
         if n > ln {
             core::ptr::null_mut()
-        } else if ln <= 0x4000 {
+        } else if ln <= 0x4000 || n == 0 {
             p
         } else {
             core::hint::cold_path();
@@ -233,6 +233,7 @@ macro_rules! acquire {
 
 extern "system" fn start(_: *mut c_void) -> u32 {
     unsafe {
+        let guard = core::mem::DropGuard::new(0, |_| _mi_thread_done());
         let mut session = neohook::DetourTransaction::begin();
         let module = GetModuleHandleW(w!("ucrtbase"));
         debug_assert!(!module.is_null(), "ucrtbase.dll not found in process");
@@ -423,9 +424,8 @@ extern "system" fn start(_: *mut c_void) -> u32 {
             .unwrap();
         session.update_all_threads();
         core::mem::forget(session.commit().expect("transaction failed"));
-        _mi_thread_done();
+        *guard
     }
-    0
 }
 
 #[unsafe(no_mangle)]
@@ -448,8 +448,7 @@ unsafe extern "system" fn raw_main(_: HINSTANCE, reason: u32, _: *mut c_void) ->
                 core::ptr::null_mut(),
             );
             CloseHandle(handle);
-            GetModuleHandleExW(1 | 4, start as _, &mut handle);
-            FreeLibrary(handle)
+            GetModuleHandleExW(1 | 4, start as _, &mut handle)
         },
         3 => unsafe {
             _mi_thread_done();
